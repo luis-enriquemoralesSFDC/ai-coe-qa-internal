@@ -66,7 +66,7 @@ No necesitas correr `./setup.sh` otra vez (a menos que actualices dependencias o
 
 Tu key del SFR Gateway es lo que la app usa para hablar con los modelos de IA (GPT-4o y compañía). Es **personal** y se cobra a Salesforce.
 
-1. Pídela en el portal interno del Salesforce Research Gateway.
+1. Obtenla aqui,en el portal interno del Salesforce Research Gateway:https://gateway-dashboard.salesforceresearch.ai/
 2. Cópiala completa (es una cadena alfanumérica de ~32 caracteres, **NO** empieza con `sk-`).
 3. Pégala cuando `./setup.sh` te la pida.
 4. Si necesitas rotarla, edita `backend/.env` o vuelve a correr `./setup.sh`.
