@@ -195,7 +195,7 @@ Copia el archivo `backend/qa_manager.db` de tu Mac vieja al mismo path en la Mac
 
 ### "La IA está dando respuestas raras o lentas"
 
-- **Lentas**: el modelo default es `gpt-4o-mini`. Si quieres calidad, pídele al agente: "cambia el modelo en `backend/.env` a `gpt-4o-2024-08-06`". Va a ser ~3x más lento pero mejor.
+- **Lentas o caras**: el modelo default es `gpt-4o-2024-08-06` (calidad alta). Si vas a iterar mucho y prefieres respuestas más rápidas y baratas, pídele al agente: "cambia el modelo en `backend/.env` a `gpt-4o-mini`". Es ~3x más rápido y ~16x más barato, a costa de un poco de calidad.
 - **Raras**: probable que tu prompt (la HU) sea muy ambiguo. Mejóralo, agrega más contexto, criterios de aceptación claros.
 
 ### "No tengo Cursor — ¿puedo usar solo la terminal?"

@@ -211,7 +211,7 @@ Servicio: `services/export_service.py`
 
 Cada llamada a la IA queda loggeada como una línea estructurada:
 ```
-[ai_call] op=invest_analyze model=gpt-4o-mini status=ok tokens_in=890 tokens_out=412 cost_usd=0.0015 latency_ms=2103
+[ai_call] op=invest_analyze model=gpt-4o-2024-08-06 status=ok tokens_in=890 tokens_out=412 cost_usd=0.0064 latency_ms=2103
 ```
 Y persistida en la tabla `ai_usage` (modelo `AiUsage`).
 
@@ -275,7 +275,7 @@ Detalle técnico completo en `docs/architecture.md` (diagramas mermaid). Léelo 
 - **Provider abstracto** (`backend/app/interfaces/ai_provider.py` — Protocols).
 - **Provider concreto**: `OpenAIProvider` (`backend/app/providers/openai_provider.py`). Soporta auto-detección entre OpenAI directo y SFR Gateway por el prefijo de la key.
 - **En esta versión local**: SOLO SFR Gateway (key sin prefijo `sk-` + `OPENAI_BASE_URL`).
-- **Modelos soportados** (allowlist en `_pricing.py`): `gpt-4o`, `gpt-4o-2024-08-06`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o1`, `o1-mini`, `o3-mini`. Default actual: `gpt-4o-mini`.
+- **Modelos soportados** (allowlist en `_pricing.py`): `gpt-4o`, `gpt-4o-2024-08-06`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o1`, `o1-mini`, `o3-mini`. Default actual: `gpt-4o-2024-08-06`.
 - **Trust Layer del Gateway** (opcional): bias, toxicity, prompt-injection.
 - **Antiprompt-injection**: `sanitize_user_text` + `wrap_user_input` antes de mandar texto del usuario al LLM.
 - **Zero retention**: `store=false` en cada request a OpenAI.

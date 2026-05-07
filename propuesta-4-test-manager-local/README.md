@@ -100,7 +100,7 @@ Las que más probablemente vas a tocar en `backend/.env`:
 |---|---|---|
 | `OPENAI_API_KEY` | `tu-key-aqui` | **Siempre.** El setup te la pregunta. |
 | `OPENAI_BASE_URL` | `https://gateway.salesforceresearch.ai/openai/process/v1` | Solo si tu equipo tiene un gateway distinto. |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Cámbialo a `gpt-4o-2024-08-06` si quieres más calidad. |
+| `OPENAI_MODEL` | `gpt-4o-2024-08-06` | Cámbialo a `gpt-4o-mini` si quieres iterar prompts más rápido y barato (~16x menor costo). |
 | `LOG_LEVEL` | `INFO` | `DEBUG` si vas a depurar. |
 | `MONTHLY_BUDGET_USD` | `0.0` (sin límite) | Si quieres frenarte solo, ponle un tope. |
 
