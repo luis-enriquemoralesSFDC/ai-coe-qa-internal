@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Tipografía base: Inter (cargada en index.html) con fallback al stack legacy ─── */
+@layer base {
+  body {
+    @apply bg-slds-neutral-2 text-slds-neutral-10 antialiased text-sm;
+    font-family: "Inter", "Salesforce Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+/* ── Lightning Design System components ──────────────────────────────────── */
+@layer components {
+
+  /* Buttons */
+  .slds-btn {
+    @apply inline-flex items-center gap-1.5 px-4 py-1.5 rounded-slds font-medium text-sm
+           transition-all duration-150 cursor-pointer border focus:outline-none;
+  }
+  .slds-btn-brand {
+    @apply slds-btn bg-slds-brand text-white border-slds-brand
+           hover:bg-slds-brand-dark hover:border-slds-brand-dark
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .slds-btn-neutral {
+    @apply slds-btn bg-white text-slds-brand border-slds-brand
+           hover:bg-slds-brand-light
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .slds-btn-destructive {
+    @apply slds-btn bg-slds-error text-white border-slds-error
+           hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .slds-btn-icon {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-full
+           text-slds-neutral-7 hover:bg-slds-neutral-3 transition-colors;
+  }
+  /* AI buttons — violet para acciones de IA (Generar, INVEST, Coach). Diferenciable del brand indigo. */
+  .slds-btn-ai {
+    @apply slds-btn bg-slds-ai text-white border-slds-ai
+           hover:bg-slds-ai-dark hover:border-slds-ai-dark
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .slds-btn-ai-neutral {
+    @apply slds-btn bg-white text-slds-ai border-slds-ai
+           hover:bg-slds-ai-light
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Card — Lightning "card" component */
+  .slds-card {
+    @apply bg-white rounded-slds border border-slds-neutral-4 shadow-slds-card
+           overflow-hidden;
+  }
+  .slds-card__header {
+    @apply flex items-center justify-between px-4 py-3
+           border-b border-slds-neutral-4 bg-white;
+  }
+  .slds-card__body {
+    @apply px-4 py-3;
+  }
+
+  /* Section card — más grande */
+  .slds-section {
+    @apply bg-white rounded-slds border border-slds-neutral-4 shadow-slds-card;
+  }
+
+  /* Form */
+  .slds-input {
+    @apply w-full px-3 py-1.5 border border-slds-neutral-4 rounded-slds text-sm
+           text-slds-neutral-10 bg-white placeholder-slds-neutral-6
+           focus:outline-none focus:ring-1 focus:ring-slds-brand focus:border-slds-brand
+           transition-colors;
+  }
+  .slds-label {
+    @apply block text-xs font-semibold text-slds-neutral-7 mb-0.5 uppercase tracking-wide;
+  }
+  .slds-textarea {
+    @apply slds-input resize-none;
+  }
+
+  /* Badge / Pill */
+  .slds-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+  .slds-badge-brand   { @apply slds-badge bg-slds-brand-light text-slds-brand-dark; }
+  .slds-badge-success { @apply slds-badge bg-slds-success-bg text-slds-success; }
+  .slds-badge-error   { @apply slds-badge bg-slds-error-bg text-slds-error; }
+  .slds-badge-warning { @apply slds-badge bg-slds-warning-bg text-slds-warning; }
+  .slds-badge-neutral { @apply slds-badge bg-slds-neutral-3 text-slds-neutral-8; }
+  .slds-badge-ai      { @apply slds-badge bg-slds-ai-light text-slds-ai-dark; }
+
+  /* Table
+     w-full hace que la tabla siempre llene el 100% del card (Acciones queda
+     pegada al borde derecho). En tablas con celdas que tienen whitespace-nowrap
+     (ej: columna Acciones con varios botones), la tabla aún puede crecer más
+     allá del 100% si el contenido no cabe — el browser respeta los mínimos
+     intrínsecos de las celdas nowrap. Un wrapper <div className="overflow-x-auto">
+     en el parent activa scroll horizontal en pantallas angostas.
+  */
+  .slds-table {
+    @apply w-full text-sm border-collapse;
+  }
+  .slds-table th {
+    @apply px-3 py-2 text-left text-xs font-semibold text-slds-neutral-7
+           uppercase tracking-wide bg-slds-neutral-2 border-b border-slds-neutral-4;
+  }
+  .slds-table td {
+    @apply px-3 py-2.5 border-b border-slds-neutral-3 text-slds-neutral-9;
+  }
+  .slds-table tr:last-child td {
+    @apply border-b-0;
+  }
+  .slds-table tbody tr:hover td {
+    @apply bg-slds-brand-light;
+  }
+  /* Convención del sistema: la última columna de cada tabla siempre contiene
+     "Acciones" (botones alineados a la derecha vía justify-end en el div).
+     Right-aligneamos su header y celda para que el label "ACCIONES" matchee
+     visualmente con los botones, sin tener que tocar cada <th>/<td> en los
+     6+ archivos donde se usan estas tablas.
+
+     Si en el futuro alguna tabla tuviera su última columna NO siendo Acciones
+     (ej: columna numérica), basta con override puntual: `text-left` o
+     `text-center` explícito en ese <th>/<td> específico ganan especificidad. */
+  .slds-table th:last-child,
+  .slds-table td:last-child {
+    @apply text-right;
+  }
+
+  /* Stat tile */
+  .slds-tile {
+    @apply slds-card px-4 py-4 flex items-center gap-3;
+  }
+  .slds-tile__icon {
+    @apply w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0;
+  }
+
+  /* Modal overlay */
+  .slds-modal-backdrop {
+    @apply fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4;
+  }
+  .slds-modal {
+    @apply bg-white rounded-slds shadow-slds-drop w-full max-w-lg max-h-[90vh]
+           flex flex-col overflow-hidden;
+  }
+  .slds-modal__header {
+    @apply flex items-center justify-between px-5 py-3.5
+           border-b border-slds-neutral-4 bg-slds-neutral-2 flex-shrink-0;
+  }
+  .slds-modal__body {
+    @apply px-5 py-4 overflow-y-auto flex-1;
+  }
+  .slds-modal__footer {
+    @apply flex gap-3 justify-end px-5 py-3
+           border-t border-slds-neutral-4 bg-slds-neutral-2 flex-shrink-0;
+  }
+
+  /* Sidebar nav item */
+  .slds-nav-item {
+    @apply flex items-center gap-2.5 px-4 py-2 text-sm text-slds-neutral-8
+           hover:bg-slds-brand-light hover:text-slds-brand cursor-pointer
+           transition-colors rounded-slds mx-2 font-medium;
+  }
+  .slds-nav-item--active {
+    @apply bg-slds-brand-light text-slds-brand font-semibold;
+  }
+
+  /* Breadcrumb */
+  .slds-breadcrumb {
+    @apply flex items-center gap-1 text-xs text-slds-neutral-7 mb-4;
+  }
+
+  /* Spinner */
+  .slds-spinner {
+    @apply animate-spin h-4 w-4 border-2 border-slds-neutral-4 border-t-slds-brand rounded-full;
+  }
+}
