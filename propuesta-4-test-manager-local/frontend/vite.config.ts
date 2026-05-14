@@ -11,5 +11,12 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    // Polling en lugar del watcher nativo de FS: evita que el watcher
+    // se desincronice cuando los archivos se editan rápidamente desde
+    // procesos externos (como un agente de Cursor).
+    watch: {
+      usePolling: true,
+      interval: 200,
+    },
   },
 })

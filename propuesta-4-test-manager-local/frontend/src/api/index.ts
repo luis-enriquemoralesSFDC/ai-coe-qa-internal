@@ -555,3 +555,66 @@ export const projectChatApi = {
   clear: (projectId: number): Promise<void> =>
     client.delete(`/projects/${projectId}/chat/messages`).then(() => undefined),
 }
+
+
+// ── Test Runs (ejecución automática vía Cursor SDK + Playwright MCP) ─────────
+// El backend crea filas queued; el qa-worker (proceso aparte) las ejecuta y
+// va escribiendo el status. La UI consume estos endpoints para crear runs y
+// hacer polling del progreso.
+
+export type TestRunStatus =
+  | 'queued'
+  | 'running'
+  | 'waiting_login'
+  | 'finished'
+  | 'error'
+  | 'cancelled'
+
+export interface TestRunOut {
+  id: number
+  user_id: number
+  project_id: number
+  case_ids: number[]
+  env: string
+  base_url: string
+  model_id: string
+  prompt: string
+  status: TestRunStatus
+  continue_signal: boolean
+  cancel_signal: boolean
+  agent_id: string | null
+  result: string | null
+  error_message: string | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+}
+
+export interface TestRunCreate {
+  project_id: number
+  case_ids: number[]
+  env: string
+  base_url: string
+  prompt: string
+  model_id?: string
+}
+
+export const testRunsApi = {
+  create: (data: TestRunCreate): Promise<TestRunOut> =>
+    client.post('/test-runs', data).then((r) => r.data),
+
+  get: (runId: number): Promise<TestRunOut> =>
+    client.get(`/test-runs/${runId}`).then((r) => r.data),
+
+  // El backend espera ?project_id= como query param.
+  listByProject: (projectId: number): Promise<TestRunOut[]> =>
+    client.get('/test-runs', { params: { project_id: projectId } }).then((r) => r.data),
+
+  // Idempotente: si el run no está en waiting_login, devuelve la fila tal cual.
+  continue: (runId: number): Promise<TestRunOut> =>
+    client.post(`/test-runs/${runId}/continue`).then((r) => r.data),
+
+  // Idempotente: en estados terminales es no-op.
+  cancel: (runId: number): Promise<TestRunOut> =>
+    client.post(`/test-runs/${runId}/cancel`).then((r) => r.data),
+}

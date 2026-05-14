@@ -7,27 +7,31 @@
 #
 # Pasos:
 #   1. Verifica Python 3.11+ y Node 18+ (los instala con brew si faltan).
-#   2. Crea el entorno virtual de Python e instala dependencias.
+#   2. Crea el entorno virtual de Python e instala dependencias del backend.
 #   3. Instala dependencias del frontend (npm install).
-#   4. Crea backend/.env desde el template y configura tu API key.
+#   4. Instala dependencias del qa-worker (npm install) — ejecuta los runs
+#      del Cursor SDK + Playwright MCP.
+#   5. Crea backend/.env y qa-worker/.env desde sus templates y configura las
+#      API keys (SFR Gateway y Cursor SDK).
 #
 # ── Modos de uso ──────────────────────────────────────────────────────────────
 #
 # A) Interactivo (humano en su terminal):
 #      ./setup.sh
-#    El script te pregunta tu key del SFR Gateway con read -s.
+#    El script te pregunta tu key del SFR Gateway y tu CURSOR_API_KEY con read -s.
 #
 # B) No-interactivo (agente de Cursor o CI):
-#      SFR_API_KEY="<tu-key>" ./setup.sh
+#      SFR_API_KEY="<tu-sfr-key>" CURSOR_API_KEY="<tu-cursor-key>" ./setup.sh
 #      # o
-#      SFR_API_KEY="<tu-key>" ./setup.sh --non-interactive
-#    El script usa la key del environment, no pregunta nada.
+#      SFR_API_KEY="..." CURSOR_API_KEY="..." ./setup.sh --non-interactive
+#    El script usa las keys del environment, no pregunta nada.
+#    (Si solo quieres setear una y respetar la otra ya configurada, omítela).
 #
 # C) Auto-instalar prerequisites (Python/Node) sin preguntar:
 #      ./setup.sh --auto-install-deps
 #    Útil para agentes; salta el prompt de confirmación de brew.
 #
-# Cuando termine, corre ./start.sh para arrancar la app.
+# Cuando termine, corre ./start.sh para arrancar la app + el worker.
 # ──────────────────────────────────────────────────────────────────────────────
 
 set -e
@@ -58,8 +62,9 @@ for arg in "$@"; do
   esac
 done
 
-# Si SFR_API_KEY viene del environment, asumimos modo no-interactivo automáticamente.
-if [ -n "${SFR_API_KEY:-}" ]; then
+# Si SFR_API_KEY o CURSOR_API_KEY vienen del environment, asumimos modo
+# no-interactivo automáticamente.
+if [ -n "${SFR_API_KEY:-}" ] || [ -n "${CURSOR_API_KEY:-}" ]; then
   NON_INTERACTIVE=1
 fi
 
@@ -118,7 +123,7 @@ ask_yes_no() {
 print_header
 
 # ── 1. Verificar / instalar prerequisites ────────────────────────────────────
-print_step "1/4 — Verificando prerequisites"
+print_step "1/5 — Verificando prerequisites"
 
 # Homebrew (necesario solo si tenemos que instalar algo).
 have_brew() { command -v brew >/dev/null 2>&1; }
@@ -210,7 +215,7 @@ else
 fi
 
 # ── 2. Backend: venv + pip install ───────────────────────────────────────────
-print_step "2/4 — Preparando backend (Python)"
+print_step "2/5 — Preparando backend (Python)"
 
 cd "$ROOT/backend"
 
@@ -234,7 +239,7 @@ deactivate
 cd "$ROOT"
 
 # ── 3. Frontend: npm install ─────────────────────────────────────────────────
-print_step "3/4 — Preparando frontend (Node)"
+print_step "3/5 — Preparando frontend (Node)"
 
 cd "$ROOT/frontend"
 
@@ -248,8 +253,29 @@ fi
 
 cd "$ROOT"
 
-# ── 4. Configurar backend/.env ───────────────────────────────────────────────
-print_step "4/4 — Configurando tu API key del SFR Gateway"
+# ── 4. qa-worker: npm install ────────────────────────────────────────────────
+print_step "4/5 — Preparando qa-worker (Node + Cursor SDK)"
+
+if [ ! -d "$ROOT/qa-worker" ]; then
+  print_warn "Carpeta qa-worker/ no existe. ¿Repo desactualizado?"
+  print_warn "Saltando este paso — vuelve a hacer git pull e intenta de nuevo."
+else
+  cd "$ROOT/qa-worker"
+
+  if [ ! -d "node_modules" ]; then
+    echo "  Ejecutando npm install para qa-worker (tarda 30-90s la primera vez)..."
+    echo "  (Esto baja @cursor/sdk + better-sqlite3; este último compila nativamente.)"
+    npm install --silent
+    print_ok "qa-worker/node_modules instalado"
+  else
+    print_ok "qa-worker/node_modules ya existe (lo reutilizo)"
+  fi
+
+  cd "$ROOT"
+fi
+
+# ── 5. Configurar credenciales (.env de backend y qa-worker) ─────────────────
+print_step "5/5 — Configurando API keys (SFR Gateway + Cursor SDK)"
 
 ENV_FILE="$ROOT/backend/.env"
 ENV_EXAMPLE="$ROOT/backend/.env.example"
@@ -331,6 +357,89 @@ else
   fi
 fi
 
+# ── 5b. Configurar qa-worker/.env (CURSOR_API_KEY) ───────────────────────────
+echo ""
+
+WORKER_ENV_FILE="$ROOT/qa-worker/.env"
+WORKER_ENV_EXAMPLE="$ROOT/qa-worker/.env.example"
+
+write_cursor_key_to_worker_env() {
+  local key="$1"
+
+  if [ ! -f "$WORKER_ENV_FILE" ]; then
+    cp "$WORKER_ENV_EXAMPLE" "$WORKER_ENV_FILE"
+  fi
+  cp "$WORKER_ENV_FILE" "$WORKER_ENV_FILE.bak"
+  sed -i.tmp "s|^CURSOR_API_KEY=.*|CURSOR_API_KEY=$key|" "$WORKER_ENV_FILE"
+  rm -f "$WORKER_ENV_FILE.tmp"
+}
+
+# Detectar si el worker .env tiene una key real (no vacía y no placeholder).
+worker_env_has_real_key() {
+  [ -f "$WORKER_ENV_FILE" ] || return 1
+  local v
+  v="$(grep "^CURSOR_API_KEY=" "$WORKER_ENV_FILE" | cut -d'=' -f2- | tr -d '[:space:]')"
+  [ -n "$v" ] && [ "$v" != "your-cursor-api-key-here" ]
+}
+
+if [ ! -d "$ROOT/qa-worker" ]; then
+  print_warn "Carpeta qa-worker/ no existe — saltando configuración de CURSOR_API_KEY"
+
+# Caso A: ya está configurado y no viene una key nueva por env → respeto.
+elif worker_env_has_real_key && [ -z "${CURSOR_API_KEY:-}" ]; then
+  print_ok "qa-worker/.env ya está configurado con CURSOR_API_KEY (lo respeto)"
+
+# Caso B: no-interactivo y viene CURSOR_API_KEY por env var.
+elif [ "$NON_INTERACTIVE" = "1" ]; then
+  if [ -z "${CURSOR_API_KEY:-}" ]; then
+    print_warn "Modo no-interactivo sin CURSOR_API_KEY — qa-worker/.env quedará sin configurar"
+    print_warn "El backend y frontend van a arrancar pero el worker fallará al ejecutar runs"
+    if [ ! -f "$WORKER_ENV_FILE" ]; then
+      cp "$WORKER_ENV_EXAMPLE" "$WORKER_ENV_FILE"
+      print_ok "qa-worker/.env creado desde el template (CURSOR_API_KEY vacío)"
+    fi
+  else
+    write_cursor_key_to_worker_env "$CURSOR_API_KEY"
+    print_ok "qa-worker/.env configurado desde CURSOR_API_KEY (no-interactivo)"
+  fi
+
+# Caso C: interactivo, le pregunto al humano.
+else
+  if [ ! -f "$WORKER_ENV_FILE" ]; then
+    cp "$WORKER_ENV_EXAMPLE" "$WORKER_ENV_FILE"
+    print_ok "Archivo qa-worker/.env creado desde el template"
+  else
+    print_warn "qa-worker/.env existe pero sin key real, lo voy a actualizar"
+  fi
+
+  echo ""
+  echo "  ──────────────────────────────────────────────────────────────────"
+  echo "   Necesitas tu API key personal de Cursor para ejecutar test runs."
+  echo "   La sacas de: https://cursor.com/dashboard → API Keys"
+  echo "   La key empieza con 'crsr_' (o similar)."
+  echo ""
+  echo "   ⚠  IMPORTANTE:"
+  echo "      • Es PERSONAL — cada miembro del equipo usa la suya."
+  echo "      • Cada run consume cuota de tu plan de Cursor."
+  echo "      • Se guarda SOLO en qa-worker/.env (tu Mac, local)."
+  echo "      • Está en .gitignore — no se sube a git."
+  echo "      • NO la pegues en Slack, screenshots ni Quip."
+  echo "  ──────────────────────────────────────────────────────────────────"
+  echo ""
+
+  read -r -s -p "  Pega aquí tu CURSOR_API_KEY (no se mostrará): " CURSOR_KEY_INTERACTIVE
+  echo ""
+
+  if [ -z "$CURSOR_KEY_INTERACTIVE" ]; then
+    print_warn "No pegaste ninguna key. qa-worker/.env quedó con CURSOR_API_KEY vacía."
+    print_warn "Edítalo manualmente antes de ejecutar test runs (./start.sh igual arranca)."
+  else
+    write_cursor_key_to_worker_env "$CURSOR_KEY_INTERACTIVE"
+    print_ok "qa-worker/.env actualizado con tu CURSOR_API_KEY"
+    echo "  (backup en qa-worker/.env.bak por si necesitas revertir)"
+  fi
+fi
+
 # ── Cierre ───────────────────────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════════════════════╗"
@@ -340,7 +449,8 @@ echo ""
 echo "  Próximo paso:"
 echo "    ./start.sh"
 echo ""
-echo "  Esto arranca:"
-echo "    • Backend FastAPI en http://localhost:8000"
-echo "    • Frontend React en http://localhost:5173"
+echo "  Esto arranca 3 procesos en paralelo:"
+echo "    • Backend FastAPI    → http://localhost:8000"
+echo "    • Frontend React     → http://localhost:5173"
+echo "    • qa-worker (Node)   → ejecuta los test runs en Chromium"
 echo ""

@@ -17,6 +17,9 @@ build/
 *.db
 *.sqlite
 *.sqlite3
+# Artefactos de SQLite en WAL mode (los usan backend + qa-worker al mismo tiempo).
+*.db-shm
+*.db-wal
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 .pytest_cache/
@@ -36,3 +39,8 @@ dist/
 .idea/
 *.swp
 *.swo
+
+# ── Runtime ──────────────────────────────────────────────────────────────────
+# Logs del worker generados por start.sh y backups que hace setup.sh
+logs/
+*.bak

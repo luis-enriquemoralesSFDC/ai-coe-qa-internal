@@ -20,6 +20,7 @@ from .repositories.usage_repository import UsageRepository
 from .repositories.test_plan_repository import TestPlanRepository
 from .repositories.test_plan_coach_repository import TestPlanCoachMessageRepository
 from .repositories.project_chat_repository import ProjectChatMessageRepository
+from .repositories.test_run_repository import TestRunRepository
 from .services.invest_service import InvestService
 from .services.testcase_service import TestCaseService
 from .services.document_service import DocumentService
@@ -92,6 +93,10 @@ def get_project_chat_repo(
     db: Session = Depends(get_db),
 ) -> ProjectChatMessageRepository:
     return ProjectChatMessageRepository(db)
+
+
+def get_test_run_repo(db: Session = Depends(get_db)) -> TestRunRepository:
+    return TestRunRepository(db)
 
 
 # ── Services ──────────────────────────────────────────────────────────────────

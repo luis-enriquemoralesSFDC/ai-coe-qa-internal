@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.log
+.playwright-mcp/
+
+# Evidencias del spike (screenshots y snapshots de runs específicos).
+tc-*.png
+tc-*.md
+*-snapshot.yml

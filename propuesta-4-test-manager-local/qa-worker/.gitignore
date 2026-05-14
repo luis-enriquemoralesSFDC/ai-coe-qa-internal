@@ -1,0 +1,13 @@
+.env
+node_modules/
+.playwright-mcp/
+*.log
+dist/
+
+# Outputs generados por cada ejecución del worker (cwd del SDK).
+runs/
+
+# Evidencias que el agente deja en el cwd durante los runs.
+tc-*.png
+tc-*.md
+*-snapshot.yml

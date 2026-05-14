@@ -270,3 +270,54 @@ class ProjectChatMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     project = relationship("Project", back_populates="chat_messages")
+
+
+class TestRun(Base):
+    """
+    Ejecución automática de uno o más casos de prueba via Cursor SDK + Playwright MCP.
+
+    Modelo de coordinación entre FastAPI (productor) y un worker Node externo
+    (consumidor, en propuesta-4-test-manager-local/qa-worker/):
+
+    - Frontend POST → se crea fila con status="queued".
+    - Worker polea `WHERE status='queued'` y la toma marcando status="running".
+    - Si el agente pide login → worker setea status="waiting_login" y duerme.
+    - QA confirma desde la UI → endpoint POST /continue setea continue_signal=true
+      → worker lo detecta y hace agent.send("continúa") al siguiente poll.
+    - Al terminar, worker escribe status="finished"|"error", result, finished_at.
+    - Para abortar, endpoint POST /cancel setea cancel_signal=true → worker
+      llama run.cancel() en el SDK y marca status="cancelled".
+
+    case_ids es JSON (no FK) para preservar la auditoría histórica aunque algún
+    caso sea eliminado más tarde.
+
+    No hay relación back_populates explícita con User/Project porque los runs
+    son una preocupación de orquestación, no parte del dominio core de los
+    proyectos (mismo criterio que AiUsage).
+    """
+    __tablename__ = "test_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    case_ids = Column(JSON, nullable=False)
+
+    env = Column(String(20), nullable=False)            # qa | uat | prod
+    base_url = Column(String(500), nullable=False)
+    model_id = Column(String(100), nullable=False, default="claude-haiku-4-5")
+    prompt = Column(Text, nullable=False)
+
+    # queued | running | waiting_login | finished | error | cancelled
+    status = Column(String(20), nullable=False, default="queued", index=True)
+
+    continue_signal = Column(Boolean, nullable=False, default=False)
+    cancel_signal = Column(Boolean, nullable=False, default=False)
+
+    agent_id = Column(String(200), nullable=True)
+    result = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)

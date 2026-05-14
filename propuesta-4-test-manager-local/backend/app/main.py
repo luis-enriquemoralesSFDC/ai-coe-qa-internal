@@ -27,6 +27,7 @@ from .routes.test_plans import (
 )
 from .routes.test_plan_coach import router as test_plan_coach_router
 from .routes.project_chat import router as project_chat_router
+from .routes.test_runs import router as test_runs_router
 from .services.test_plan_service import validate_template_schema_sync
 
 configure_logging(settings.log_level)
@@ -97,6 +98,7 @@ app.include_router(project_test_plans_router, prefix="/api")
 app.include_router(test_plans_router, prefix="/api")
 app.include_router(test_plan_coach_router, prefix="/api")
 app.include_router(project_chat_router, prefix="/api")
+app.include_router(test_runs_router, prefix="/api")
 
 
 @app.get("/api/health")

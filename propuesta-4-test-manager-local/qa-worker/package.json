@@ -1,0 +1,26 @@
+{
+  "name": "qa-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Worker Node que ejecuta test_runs (creados por FastAPI) usando @cursor/sdk + Playwright MCP. Polea SQLite directo. Un solo worker = un solo Chromium activo.",
+  "scripts": {
+    "start": "tsx src/worker.ts",
+    "dev": "tsx watch src/worker.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.13",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^25.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "sqlite3": "^6.0.1"
+  }
+}
