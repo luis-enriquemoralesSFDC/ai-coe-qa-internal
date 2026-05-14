@@ -1,0 +1,7 @@
+# Artefactos que el agente de Cursor + Playwright MCP crean en la raíz del repo
+# durante el desarrollo. No son parte del proyecto.
+.playwright-mcp/
+tc-001-*.png
+
+# macOS
+.DS_Store

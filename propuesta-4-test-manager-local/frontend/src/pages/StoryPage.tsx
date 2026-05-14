@@ -1,16 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronRight, Brain, Plus, Trash2, X, Loader2,
   CheckCircle, XCircle, Clock, MinusCircle, Home, Download, Sparkles,
-  AlertTriangle, FileSearch, ListChecks, Tag,
+  AlertTriangle, FileSearch, ListChecks, Tag, Play, History,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
-import { storiesApi, testCasesApi, type StoryReviewResponse, type StoryReviewStep, type StoryReviewMode } from '../api'
+import { storiesApi, testCasesApi, testRunsApi, type StoryReviewResponse, type StoryReviewStep, type StoryReviewMode, type TestRunOut, type TestRunStatus } from '../api'
 import InvestBadge from '../components/InvestBadge'
 import ProjectChatDrawer from '../components/ProjectChatDrawer'
+import ExecuteTestsModal from '../components/ExecuteTestsModal'
+import TestRunProgressPanel from '../components/TestRunProgressPanel'
+import TestRunHistoryDrawer from '../components/TestRunHistoryDrawer'
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
   pending: { label: 'Pendiente', cls: 'slds-badge-brand',   icon: Clock },
@@ -18,6 +21,17 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string; icon: React.El
   fail:    { label: 'Fallido',   cls: 'slds-badge-error',   icon: XCircle },
   blocked: { label: 'Bloqueado', cls: 'slds-badge-warning', icon: MinusCircle },
   na:      { label: 'N/A',       cls: 'slds-badge-neutral', icon: MinusCircle },
+}
+
+// Etiquetas y colores compactos para el badge de "último run" en cada fila.
+// Más austero que el banner del panel de progreso para no saturar la tabla.
+const RUN_BADGE_CONFIG: Record<TestRunStatus, { label: string; cls: string }> = {
+  queued:        { label: 'En cola',    cls: 'bg-slds-neutral-3 text-slds-neutral-9' },
+  running:       { label: 'Corriendo',  cls: 'bg-slds-brand-light text-slds-brand' },
+  waiting_login: { label: 'Login',      cls: 'bg-amber-100 text-amber-700' },
+  finished:      { label: 'OK',         cls: 'bg-emerald-100 text-emerald-700' },
+  error:         { label: 'Error',      cls: 'bg-red-100 text-red-700' },
+  cancelled:     { label: 'Cancel.',    cls: 'bg-slds-neutral-3 text-slds-neutral-9' },
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -54,6 +68,12 @@ export default function StoryPage() {
   const [analyzing, setAnalyzing] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [executeCases, setExecuteCases] = useState<TestCase[] | null>(null)
+  // Run en curso visible al QA. Cuando se crea desde ExecuteTestsModal, el panel
+  // de progreso queda montado hasta que el QA lo cierre (ya sea mid-run con
+  // "Ocultar" o tras finalizar con "Cerrar"). Solo permitimos un panel a la vez.
+  const [activeRunId, setActiveRunId] = useState<number | null>(null)
+  const [showRunHistory, setShowRunHistory] = useState(false)
   // Story Review Agent: state del modal y del último resultado.
   // `agentReviewResult` se queda en memoria mientras el modal está abierto;
   // se reinicia al cerrar para que la próxima ejecución arranque limpia.
@@ -69,6 +89,32 @@ export default function StoryPage() {
     queryKey: ['test-cases', sid],
     queryFn: () => testCasesApi.list(sid),
   })
+
+  // Runs históricos del proyecto. Los usamos para colorear cada test_case con
+  // su último estado de ejecución. Refetch automático cuando hay un run activo
+  // (vía invalidate desde TestRunProgressPanel.onTerminalState).
+  const { data: projectRuns = [] } = useQuery<TestRunOut[]>({
+    queryKey: ['test-runs', pid],
+    queryFn: () => testRunsApi.listByProject(pid),
+    enabled: pid > 0,
+    // 10s stale: los runs cambian poco en relación a otros datos, y la
+    // invalidación explícita al cerrar el panel garantiza freshness en el
+    // momento crítico.
+    staleTime: 10_000,
+  })
+
+  // Mapa caseId → run más reciente que lo incluyó. Se reconstruye cada vez
+  // que cambian los runs. Asume `projectRuns` ordenado desc por created_at,
+  // que es exactamente lo que devuelve el backend.
+  const lastRunByCase = useMemo(() => {
+    const map = new Map<number, TestRunOut>()
+    for (const run of projectRuns) {
+      for (const cid of run.case_ids) {
+        if (!map.has(cid)) map.set(cid, run)
+      }
+    }
+    return map
+  }, [projectRuns])
 
   useEffect(() => {
     setSelectedIds(new Set())
@@ -240,6 +286,22 @@ export default function StoryPage() {
     toast.success(`${selected.length} caso${selected.length > 1 ? 's' : ''} exportado${selected.length > 1 ? 's' : ''}`)
   }
 
+  function openExecuteModal(cases: TestCase[]) {
+    if (cases.length === 0) {
+      toast.error('Selecciona al menos un caso para ejecutar')
+      return
+    }
+    setExecuteCases(cases)
+  }
+
+  function handleExecuteSelected() {
+    openExecuteModal(testCases.filter(tc => selectedIds.has(tc.id)))
+  }
+
+  function handleExecuteOne(tc: TestCase) {
+    openExecuteModal([tc])
+  }
+
   const invest = story?.invest_analysis
   const passCount    = testCases.filter(t => t.status === 'pass').length
   const failCount    = testCases.filter(t => t.status === 'fail').length
@@ -384,6 +446,27 @@ export default function StoryPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRunHistory(true)}
+              className="slds-btn-neutral text-xs"
+              title="Ver historial de runs automáticos del proyecto"
+            >
+              <History className="w-3.5 h-3.5" /> Historial de runs
+              {projectRuns.length > 0 && (
+                <span className="ml-1 slds-badge slds-badge-brand">{projectRuns.length}</span>
+              )}
+            </button>
+            <button
+              onClick={handleExecuteSelected}
+              disabled={selectedIds.size === 0}
+              className="slds-btn-brand text-xs"
+              title={selectedIds.size === 0 ? 'Selecciona casos para ejecutar' : `Ejecutar ${selectedIds.size} caso(s)`}
+            >
+              <Play className="w-3.5 h-3.5" /> Ejecutar seleccionados
+              {selectedIds.size > 0 && (
+                <span className="ml-1 slds-badge slds-badge-neutral">{selectedIds.size}</span>
+              )}
+            </button>
             <div className="relative">
               <button
                 onClick={() => setShowExportMenu(prev => !prev)}
@@ -446,6 +529,7 @@ export default function StoryPage() {
                   <th className="w-24 whitespace-nowrap">Tipo</th>
                   <th className="w-20 whitespace-nowrap">Prioridad</th>
                   <th className="w-32 whitespace-nowrap">Estado</th>
+                  <th className="w-28 whitespace-nowrap" title="Último run automático que incluyó este caso">Último run</th>
                   <th className="text-right whitespace-nowrap">Acciones</th>
                 </tr>
               </thead>
@@ -506,8 +590,38 @@ export default function StoryPage() {
                           <option value="na">N/A</option>
                         </select>
                       </td>
+                      <td>
+                        {(() => {
+                          const lastRun = lastRunByCase.get(tc.id)
+                          if (!lastRun) {
+                            return <span className="text-xs text-slds-neutral-6">—</span>
+                          }
+                          const cfg = RUN_BADGE_CONFIG[lastRun.status]
+                          // Click en el badge → abrir el panel del run para revisar el reporte.
+                          return (
+                            <button
+                              onClick={() => setActiveRunId(lastRun.id)}
+                              className={clsx(
+                                'inline-flex items-center gap-1 px-2 py-0.5 rounded-slds text-[10px] font-semibold uppercase tracking-wide hover:opacity-80 transition-opacity cursor-pointer',
+                                cfg.cls,
+                              )}
+                              title={`Run #${lastRun.id} — ${lastRun.created_at}\nClic para ver detalle`}
+                            >
+                              {cfg.label}
+                              <span className="opacity-60">#{lastRun.id}</span>
+                            </button>
+                          )
+                        })()}
+                      </td>
                       <td className="whitespace-nowrap">
                         <div className="flex gap-1 justify-end flex-nowrap">
+                          <button
+                            onClick={() => handleExecuteOne(tc)}
+                            className="slds-btn-icon w-6 h-6 text-slds-brand hover:bg-slds-brand-light"
+                            title="Ejecutar este caso"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
                           <button onClick={() => setEditingCase(tc)} className="slds-btn-neutral text-xs py-0.5 px-2">
                             Editar
                           </button>
@@ -560,6 +674,38 @@ export default function StoryPage() {
           activeStoryId={Number.isFinite(Number(storyId)) ? Number(storyId) : undefined}
         />
       )}
+
+      <ExecuteTestsModal
+        open={executeCases !== null}
+        cases={executeCases || []}
+        onClose={() => setExecuteCases(null)}
+        projectId={pid}
+        onRunCreated={(runId) => setActiveRunId(runId)}
+      />
+
+      {activeRunId !== null && (
+        <TestRunProgressPanel
+          runId={activeRunId}
+          onClose={() => setActiveRunId(null)}
+          onTerminalState={() => {
+            // Al terminar el run, invalidamos test-cases por si en una iteración
+            // futura escribimos el último estado del run en el TC. Hoy es un
+            // no-op funcional pero deja el hook listo.
+            queryClient.invalidateQueries({ queryKey: ['test-cases', sid] })
+            queryClient.invalidateQueries({ queryKey: ['test-runs', pid] })
+          }}
+        />
+      )}
+
+      <TestRunHistoryDrawer
+        open={showRunHistory}
+        projectId={pid}
+        onClose={() => setShowRunHistory(false)}
+        onSelectRun={(runId) => {
+          setActiveRunId(runId)
+          setShowRunHistory(false)
+        }}
+      />
     </div>
   )
 }

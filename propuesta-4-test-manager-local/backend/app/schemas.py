@@ -835,3 +835,85 @@ class CoachValidateResponse(BaseModel):
     can_generate: bool = False
     blocking_count: int = 0
     warning_count: int = 0
+
+
+# ── Test Runs (ejecución automática Cursor SDK + Playwright MCP) ─────────────
+
+# Salvaguarda anti-quema-de-quota: limita cuántos casos puede meter el QA en
+# una sola ejecución. 10 es suficiente para una smoke suite, evita que un click
+# accidental dispare 100 casos consumiendo cientos de fast requests del plan.
+MAX_CASES_PER_RUN = 10
+
+TestRunStatus = Literal[
+    "queued",
+    "running",
+    "waiting_login",
+    "finished",
+    "error",
+    "cancelled",
+]
+
+
+class TestRunCreate(BaseModel):
+    """Body de POST /test-runs — el frontend lo arma desde ExecuteTestsModal."""
+    project_id: int
+    case_ids: List[int]
+    env: str
+    base_url: str
+    prompt: str
+    # Opcional: si el QA quiere un modelo distinto al default. El default vive
+    # en el server (claude-haiku-4-5) para no acoplar la UI al pricing.
+    model_id: Optional[str] = None
+
+    @field_validator("case_ids")
+    @classmethod
+    def case_ids_within_limits(cls, v: List[int]) -> List[int]:
+        if not v:
+            raise ValueError("Debe incluirse al menos un case_id")
+        if len(v) > MAX_CASES_PER_RUN:
+            raise ValueError(
+                f"No se pueden ejecutar más de {MAX_CASES_PER_RUN} casos en un mismo run "
+                "(salvaguarda contra consumo excesivo de quota). "
+                "Divide la suite en varios runs."
+            )
+        return v
+
+    @field_validator("env")
+    @classmethod
+    def env_normalized(cls, v: str) -> str:
+        normalized = v.strip().lower()
+        if not normalized:
+            raise ValueError("env no puede estar vacío")
+        return normalized
+
+    @field_validator("base_url")
+    @classmethod
+    def base_url_looks_like_url(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not cleaned.startswith(("http://", "https://")):
+            raise ValueError("base_url debe iniciar con http:// o https://")
+        return cleaned
+
+
+class TestRunOut(BaseModel):
+    """Respuesta de los endpoints de test-runs (POST/GET/continue/cancel)."""
+    id: int
+    user_id: int
+    project_id: int
+    case_ids: List[int]
+    env: str
+    base_url: str
+    model_id: str
+    prompt: str
+    status: TestRunStatus
+    continue_signal: bool
+    cancel_signal: bool
+    agent_id: Optional[str] = None
+    result: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

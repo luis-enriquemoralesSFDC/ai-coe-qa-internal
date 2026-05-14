@@ -59,6 +59,19 @@ class Settings(BaseSettings):
     # None = la IA decide (3-5 típicos). Si seteás un número, ese es el límite duro.
     default_max_cases_per_story: int | None = None
 
+    # ── Cursor SDK (worker de ejecución automática de pruebas) ─────────────
+    # API key de Cursor que el worker Node usa para invocar el SDK
+    # (`Agent.create` + `agent.send`) y que el agente luego use Playwright MCP.
+    # Vacía está OK: la app arranca igual; solo los endpoints de test-runs y el
+    # worker fallarán si no hay key. Distinta lógica que OPENAI_API_KEY (que sí
+    # warning), porque la ejecución automática es un feature opcional, no core.
+    cursor_api_key: str = ""
+
+    # Modelo por defecto que el worker pide al SDK. Haiku es el más barato y
+    # suficiente para la mayoría de casos UI guiados por Playwright. El frontend
+    # puede override por run, pero este es el default si no se especifica.
+    cursor_model_id: str = "claude-haiku-4-5"
+
     @property
     def use_gateway(self) -> bool:
         """True si vamos a hablar via SFR Gateway, False si va directo a api.openai.com."""

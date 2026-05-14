@@ -1,0 +1,23 @@
+{
+  "name": "executor-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike aislado para validar @cursor/sdk + Playwright MCP antes de integrar al backend",
+  "scripts": {
+    "spike": "tsx spike.ts",
+    "spike:conv": "tsx spike-conversational.ts"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.13",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "sqlite3": "^6.0.1"
+  }
+}
